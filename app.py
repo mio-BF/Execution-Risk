@@ -42,9 +42,9 @@ latest = (
 )
 
 # Compute percentiles on CURRENT distribution
-p75 = latest["execution_risk_8w"].quantile(0.75)
-p90 = latest["execution_risk_8w"].quantile(0.90)
-p95 = latest["execution_risk_8w"].quantile(0.95)
+p75 = df["execution_risk_8w"].quantile(0.75)
+p90 = df["execution_risk_8w"].quantile(0.90)
+p95 = df["execution_risk_8w"].quantile(0.95)
 
 def assign_band(score):
     if score >= p95:
@@ -145,14 +145,14 @@ fig_roll.update_layout(
 )
 
 fig_roll.add_hline(
-    y=latest["execution_risk_8w"].quantile(0.90),
+    y=df["execution_risk_8w"].quantile(0.90),
     line_dash="dash",
     line_color="orange",
     annotation_text="Soft Escalation Threshold"
 )
 
 fig_roll.add_hline(
-    y=latest["execution_risk_8w"].quantile(0.95),
+    y=df["execution_risk_8w"].quantile(0.95),
     line_dash="dash",
     line_color="red",
     annotation_text="Hard Review Threshold"
