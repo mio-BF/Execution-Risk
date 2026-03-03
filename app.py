@@ -15,6 +15,14 @@ st.title("Execution Risk Governance Dashboard")
  #Option 1: load from CSV
 df = pd.read_csv("weekly_risk_output.csv")
 
+group_df = pd.read_csv("weekly_risk_execution.csv")
+
+group_df.columns = group_df.columns.str.strip()
+
+group_df["week_end"] = pd.to_datetime(group_df["week_end"], errors="coerce")
+
+group_df = group_df.sort_values(["Execution Group", "week_end"])
+
 # Force clean schema
 df.columns = df.columns.str.strip()
 
@@ -179,7 +187,43 @@ fig_weekly.update_layout(
 
 st.plotly_chart(fig_weekly, use_container_width=True)
 
+fig_weekly_PnL = px.line(
+    inst_recent,
+    x="week",
+    y="PnL",
+    markers=True,
+    title="Weekly PnL (Last 2 Months)"
+)
 
+fig_weekly_PnL.update_layout(
+    xaxis_title="Week",
+    yaxis_title="Weekly PnL",
+    template="plotly_white"
+)
+
+fig_weekly_PnL.add_hline(
+    y=0,
+    line_dash="dash",
+    line_color="red",
+)
+
+st.plotly_chart(fig_weekly_PnL, use_container_width=True)
+
+fig_weekly_LR = px.line(
+    inst_recent,
+    x="week",
+    y="LR PnL",
+    markers=True,
+    title="Weekly LR PnL (Last 2 Months)"
+)
+
+fig_weekly_LR.update_layout(
+    xaxis_title="Week",
+    yaxis_title="Weekly LR",
+    template="plotly_white"
+)
+
+st.plotly_chart(fig_weekly_LR, use_container_width=True)
 
 # -------------------------
 # ATTRIBUTION VIEW
@@ -200,4 +244,91 @@ attrib_df = pd.DataFrame(
 )
 
 st.bar_chart(attrib_df.set_index("Attribution"))
+
+st.divider()
+st.title("Execution Group Risk Monitoring")
+
+groups = sorted(group_df["Execution Group"].unique())
+
+selected_group = st.selectbox(
+    "Select Execution Group",
+    groups,
+    key="exec_group"
+)
+
+group_filtered = (
+    group_df[group_df["Execution Group"] == selected_group]
+    .sort_values("week_end")
+)
+
+max_date = group_filtered["week_end"].max()
+cutoff_date = max_date - pd.Timedelta(weeks=8)
+
+group_recent = group_filtered[group_filtered["week_end"] >= cutoff_date]
+
+latest_group = group_filtered.iloc[-1]
+
+col1, col2, col3, col4 = st.columns(4)
+
+col1.metric("Risk Score", round(latest_group["risk_score"], 2))
+col2.metric("Risk Flag", latest_group["risk_flag"])
+col3.metric("4W Rolling PnL", round(latest_group["rolling_4w_pnl"], 2))
+col4.metric("Realized Vol", round(latest_group["realized_vol"], 2))
+
+
+import plotly.express as px
+
+fig_risk = px.line(
+    group_recent,
+    x="week_end",
+    y="risk_score",
+    markers=True,
+    title="Risk Score Over Time"
+)
+
+fig_risk.update_layout(
+    xaxis_title="Week",
+    yaxis_title="Risk Score",
+    template="plotly_white"
+)
+
+# Add thresholds
+fig_risk.add_hline(y=30, line_dash="dash", line_color="gray", annotation_text="Monitor Threshold")
+fig_risk.add_hline(y=65, line_dash="dash", line_color="red",  annotation_text="Implement Changes Threshold")
+
+st.plotly_chart(fig_risk, use_container_width=True)
+
+
+fig_pnl = px.line(
+    group_recent,
+    x="week_end",
+    y="rolling_4w_pnl",
+    markers=True,
+    title="Rolling 4-Week PnL"
+)
+
+fig_pnl.update_layout(
+    xaxis_title="Week",
+    yaxis_title="PnL ($/M)",
+    template="plotly_white"
+)
+
+st.plotly_chart(fig_pnl, use_container_width=True)
+
+
+fig_vol = px.line(
+    group_recent,
+    x="week_end",
+    y="realized_vol",
+    markers=True,
+    title="Realized Volatility"
+)
+
+fig_vol.update_layout(
+    xaxis_title="Week",
+    yaxis_title="Realized Vol",
+    template="plotly_white"
+)
+
+st.plotly_chart(fig_vol, use_container_width=True)
 
