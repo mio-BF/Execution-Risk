@@ -23,6 +23,26 @@ group_df["week_end"] = pd.to_datetime(group_df["week_end"], errors="coerce")
 
 group_df = group_df.sort_values(["Execution Group", "week_end"])
 
+# -------------------------
+# LATEST WEEK SNAPSHOT (EXECUTION GROUPS)
+# -------------------------
+
+latest_week = group_df["week_end"].max()
+
+latest_groups = (
+    group_df[group_df["week_end"] == latest_week]
+    .copy()
+)
+
+red_groups = latest_groups[
+    latest_groups["risk_flag"] == "Implement Changes"
+]["Execution Group"].tolist()
+
+monitor_groups = latest_groups[
+    latest_groups["risk_flag"] == "Monitor"
+]["Execution Group"].tolist()
+
+
 # Force clean schema
 df.columns = df.columns.str.strip()
 
@@ -248,6 +268,32 @@ st.bar_chart(attrib_df.set_index("Attribution"))
 st.divider()
 st.title("Execution Group Risk Monitoring")
 
+st.subheader(f"Weekly Flag Summary ({latest_week.date()})")
+
+if len(red_groups) > 0:
+    st.error(
+        f"🔴 Implement Changes Required: {', '.join(red_groups)}"
+    )
+
+if len(monitor_groups) > 0:
+    st.warning(
+        f"🟡 Monitor: {', '.join(monitor_groups)}"
+    )
+
+if len(red_groups) == 0 and len(monitor_groups) == 0:
+    st.success("✅ No Groups Were Flagged This Week")
+
+flag_changes = (
+    group_df.sort_values("week_end")
+    .groupby("Execution Group")["risk_flag"]
+    .apply(lambda x: x.iloc[-1] != x.iloc[-2] if len(x) > 1 else False)
+)
+
+changed_groups = flag_changes[flag_changes].index.tolist()
+
+if changed_groups:
+    st.info(f"🔄 Flag Changed This Week: {', '.join(changed_groups)}")
+
 groups = sorted(group_df["Execution Group"].unique())
 
 selected_group = st.selectbox(
@@ -331,4 +377,44 @@ fig_vol.update_layout(
 )
 
 st.plotly_chart(fig_vol, use_container_width=True)
+
+st.divider()
+st.subheader("Execution Group Risk Heatmap (Last 8 Weeks)")
+
+# Get global last 8 weeks cutoff
+global_max = group_df["week_end"].max()
+global_cutoff = global_max - pd.Timedelta(weeks=8)
+
+heatmap_df = group_df[group_df["week_end"] >= global_cutoff]
+
+# Pivot table
+heatmap_pivot = heatmap_df.pivot_table(
+    index="Execution Group",
+    columns="week_end",
+    values="risk_score"
+)
+
+import plotly.graph_objects as go
+
+fig_heatmap = go.Figure(
+    data=go.Heatmap(
+        z=heatmap_pivot.values,
+        x=heatmap_pivot.columns,
+        y=heatmap_pivot.index,
+        colorscale="RdYlGn_r",
+        zmin=0,
+        zmax=100,
+        colorbar=dict(title="Risk Score")
+    )
+)
+
+fig_heatmap.update_layout(
+    title="Risk Score Heatmap (Last 8 Weeks)",
+    xaxis_title="Week",
+    yaxis_title="Execution Group",
+    height=500
+)
+
+st.plotly_chart(fig_heatmap, use_container_width=True)
+
 
