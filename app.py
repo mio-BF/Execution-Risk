@@ -294,7 +294,13 @@ changed_groups = flag_changes[flag_changes].index.tolist()
 if changed_groups:
     st.info(f"🔄 Flag Changed This Week: {', '.join(changed_groups)}")
 
-groups = sorted(group_df["Execution Group"].unique())
+groups = sorted(
+    group_df["Execution Group"]
+    .dropna()
+    .astype(str)
+    .str.strip()
+    .unique()
+)
 
 selected_group = st.selectbox(
     "Select Execution Group",
